@@ -23,6 +23,43 @@
   font-size: calc(10px + 2vmin);
   color: white;
 }
+.app-container {
+  /* Use the full height of the viewport */
+  min-height: 100vh; 
+  /* Use Flexbox to manage alignment */
+  display: flex;
+  /* Stack children vertically (header/nav, main content, footer) */
+  flex-direction: column; 
+  /* Center items horizontally */
+  align-items: center; 
+  /* Center items vertically (push content to the middle) */
+  justify-content: center;
+  /* Set a background color for the page */
+  background-color: #f4f4f4; 
+  padding: 20px;
+}
+
+/* Add some styling for the form box to make it stand out */
+.form-box, .payment-area {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px; /* Limits the width for better readability */
+    margin: 20px 0;
+}
+
+/* Style for inputs and buttons for better centering appearance */
+input, select, button {
+    display: block; /* Makes each element take up its own line */
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Ensures padding/border don't increase the total width */
+}
 
 .App-link {
   color: #61dafb;
