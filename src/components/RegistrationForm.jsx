@@ -1,162 +1,121 @@
-import React, { useState } from 'react';
+// src/components/RegistrationForm.jsx
+import React, { useState } from "react";
+import DOMPurify from "dompurify";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from '../firebase'; // Import auth and db from your config
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase";
+
+// ---- REGEX WHITELISTS ----
+const NAME_REGEX      = /^[A-Za-z][A-Za-z\s'-]{1,49}$/;     // 2–50 chars, letters/space/'/-
+const SA_ID_REGEX     = /^[0-9]{13}$/;                      // ZA ID: 13 digits (adjust if needed)
+const ACCOUNT_REGEX   = /^[0-9]{6,12}$/;                    // 6–12 digits
+const USERNAME_REGEX  = /^[a-zA-Z][a-zA-Z0-9_-]{2,19}$/;    // 3–20, start letter
+const STRONG_PASSWORD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
 
 function RegistrationForm({ onRegisterSuccess }) {
   const [formData, setFormData] = useState({
-    fullName: '',
-    idNumber: '',
-    accountNumber: '',
-    username: '', // Used as the primary identifier (like an email prefix) for Firebase
-    password: '',
+    fullName: "",
+    idNumber: "",
+    accountNumber: "",
+    username: "",
+    password: "",
   });
   const [errors, setErrors] = useState({});
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-    
-    if (errors[name]) {
-        setErrors(prevErrors => ({ ...prevErrors, [name]: null }));
-    }
+  const setField = (name, value) => {
+    setFormData((p) => ({ ...p, [name]: value }));
+    if (errors[name]) setErrors((e) => ({ ...e, [name]: null }));
   };
 
   const validateForm = () => {
-    let newErrors = {};
-    let isValid = true;
+    const e = {};
 
-    // Password Security Check (must be at least 8 chars and include a number)
-    if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters long.";
-      isValid = false;
-    } else if (!/\d/.test(formData.password)) {
-      newErrors.password = "Password must contain at least one number (0-9).";
-      isValid = false;
-    }
+    if (!NAME_REGEX.test(formData.fullName.trim()))
+      e.fullName = "Full Name: letters/space/'/- (2–50 chars).";
 
-    // Basic required field checks
-    if (formData.fullName.trim().length === 0) {
-        newErrors.fullName = "Full Name is required.";
-        isValid = false;
-    }
-    if (formData.idNumber.trim().length === 0) {
-        newErrors.idNumber = "ID Number is required.";
-        isValid = false;
-    }
-    if (formData.accountNumber.trim().length === 0) {
-        newErrors.accountNumber = "Account Number is required.";
-        isValid = false;
-    }
-    if (formData.username.trim().length === 0) {
-        newErrors.username = "Username is required.";
-        isValid = false;
-    }
+    if (!SA_ID_REGEX.test(formData.idNumber.trim()))
+      e.idNumber = "ID Number must be 13 digits (ZA).";
 
-    setErrors(newErrors);
-    return isValid;
+    if (!ACCOUNT_REGEX.test(formData.accountNumber.trim()))
+      e.accountNumber = "Account Number must be 6–12 digits.";
+
+    if (!USERNAME_REGEX.test(formData.username.trim()))
+      e.username = "Username 3–20 chars, letters first; letters/digits/_/- allowed.";
+
+    if (!STRONG_PASSWORD.test(formData.password))
+      e.password = "Min 8 chars incl. upper, lower, number & special (!@#$%^&*).";
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    if (!validateForm()) return;
 
-    if (validateForm()) {
-        try {
-            // 1. REGISTER USER IN FIREBASE AUTH
-            // We append a custom domain to the username to make it look like an email for Firebase Auth.
-            const emailForAuth = formData.username + "@bankportal.com"; 
+    try {
+      // Create synthetic email from username (normalise + sanitise)
+      const username = DOMPurify.sanitize(formData.username.trim().toLowerCase());
+      const emailForAuth = `${username}@bankportal.local`;
 
-            const userCredential = await createUserWithEmailAndPassword(
-                auth, 
-                emailForAuth,
-                formData.password
-            );
-            const user = userCredential.user;
+      const cred = await createUserWithEmailAndPassword(auth, emailForAuth, formData.password);
+      const user = cred.user;
 
-            // 2. SAVE ADDITIONAL FIELDS TO FIRESTORE DB
-            // Store the sensitive, bank-specific data under the user's secure UID
-            await setDoc(doc(db, "customers", user.uid), {
-                fullName: formData.fullName,
-                idNumber: formData.idNumber,
-                accountNumber: formData.accountNumber,
-                username: formData.username, // Save username for easy reference
-                createdAt: new Date()
-            });
+      // Prepare clean values (sanitise & trim)
+      const clean = {
+        fullName:      DOMPurify.sanitize(formData.fullName.trim()),
+        idNumber:      DOMPurify.sanitize(formData.idNumber.trim()),
+        accountNumber: DOMPurify.sanitize(formData.accountNumber.trim()),
+        username, // already normalised
+        createdAt:     serverTimestamp()
+      };
 
-            alert("Registration Successful! Please log in.");
-            onRegisterSuccess();
-        } catch (error) {
-            // Handle specific Firebase errors (e.g., email already in use)
-            let errorMessage = "Registration failed. Please try again.";
-            if (error.code === 'auth/email-already-in-use') {
-                errorMessage = "That Username is already taken. Please choose another.";
-            }
-            alert(errorMessage);
-            console.error("Firebase Registration Error:", error);
-        }
+      // Store one customer doc under the auth UID
+      await setDoc(doc(db, "customers", user.uid), clean, { merge: false });
+
+      alert("Registration successful! Please log in.");
+      onRegisterSuccess && onRegisterSuccess();
+    } catch (error) {
+      console.error("Registration error:", error);
+      // Avoid user-enumeration style messages; keep it generic
+      alert("Registration failed. Please try again or choose a different username.");
     }
   };
 
   return (
     <div className="form-box">
       <h2>Customer Registration</h2>
-      <form onSubmit={handleSubmit}>
-        
-        {/* Full Name */}
-        <input 
-          type="text" 
-          name="fullName" 
-          placeholder="Full Name" 
-          value={formData.fullName} 
-          onChange={handleChange} 
-          required 
+      <form onSubmit={handleSubmit} autoComplete="off" noValidate>
+        <input
+          type="text" name="fullName" placeholder="Full Name"
+          value={formData.fullName} onChange={(e)=>setField("fullName", e.target.value)}
         />
-        {errors.fullName && <p className="error">{errors.fullName}</p>} 
-        
-        {/* Username (NEW) */}
-        <input 
-          type="text" 
-          name="username" 
-          placeholder="Username" 
-          value={formData.username} 
-          onChange={handleChange} 
-          required 
+        {errors.fullName && <p className="error">{errors.fullName}</p>}
+
+        <input
+          type="text" name="username" placeholder="Username"
+          value={formData.username} onChange={(e)=>setField("username", e.target.value)}
         />
         {errors.username && <p className="error">{errors.username}</p>}
 
-        {/* ID Number */}
-        <input 
-          type="text" 
-          name="idNumber" 
-          placeholder="ID Number" 
-          value={formData.idNumber} 
-          onChange={handleChange} 
-          required 
+        <input
+          type="text" name="idNumber" placeholder="ID Number (13 digits)"
+          value={formData.idNumber} onChange={(e)=>setField("idNumber", e.target.value)}
+          inputMode="numeric"
         />
         {errors.idNumber && <p className="error">{errors.idNumber}</p>}
-        
-        {/* Account Number */}
-        <input 
-          type="text" 
-          name="accountNumber" 
-          placeholder="Account Number" 
-          value={formData.accountNumber} 
-          onChange={handleChange} 
-          required 
+
+        <input
+          type="text" name="accountNumber" placeholder="Account Number"
+          value={formData.accountNumber} onChange={(e)=>setField("accountNumber", e.target.value)}
+          inputMode="numeric"
         />
         {errors.accountNumber && <p className="error">{errors.accountNumber}</p>}
 
-        {/* Password */}
-        <input 
-          type="password" 
-          name="password" 
-          placeholder="Password (min 8 chars, 1 number)" 
-          value={formData.password} 
-          onChange={handleChange} 
-          required 
+        <input
+          type="password" name="password"
+          placeholder="Password (Upper+lower+number+special, ≥8)"
+          value={formData.password} onChange={(e)=>setField("password", e.target.value)}
         />
         {errors.password && <p className="error">{errors.password}</p>}
 
