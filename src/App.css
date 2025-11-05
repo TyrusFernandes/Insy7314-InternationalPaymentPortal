@@ -2,63 +2,66 @@
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+.app-container {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  background-color: #f4f4f4;
+}
+
+nav {
+  margin-top: 20px;
+}
+
+.content {
+  flex: 1; /* pushes footer down */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-.app-container {
-  /* Use the full height of the viewport */
-  min-height: 100vh; 
-  /* Use Flexbox to manage alignment */
-  display: flex;
-  /* Stack children vertically (header/nav, main content, footer) */
-  flex-direction: column; 
-  /* Center items horizontally */
-  align-items: center; 
-  /* Center items vertically (push content to the middle) */
-  justify-content: center;
-  /* Set a background color for the page */
-  background-color: #f4f4f4; 
-  padding: 20px;
+  width: 100%;
 }
 
-/* Add some styling for the form box to make it stand out */
-.form-box, .payment-area {
-    background-color: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 400px; /* Limits the width for better readability */
-    margin: 20px 0;
+/* Footer stays at bottom */
+.footer {
+  background-color: #f4f4f4;
+  text-align: center;
+  padding: 0.8rem 0;
+  border-top: 1px solid #ccc;
+  font-size: 0.9rem;
+  color: #444;
+  position: sticky;
+  bottom: 0;
+  width: 100%;
 }
 
-/* Style for inputs and buttons for better centering appearance */
-input, select, button {
-    display: block; /* Makes each element take up its own line */
-    width: 100%;
-    margin-bottom: 15px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box; /* Ensures padding/border don't increase the total width */
+/* Form boxes (shared styling) */
+.form-box,
+.payment-area {
+  background-color: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  margin: 20px 0;
+}
+
+/* Inputs, selects, buttons */
+input,
+select,
+button {
+  display: block;
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+button {
+  cursor: pointer;
 }
 
 .App-link {

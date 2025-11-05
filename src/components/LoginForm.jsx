@@ -6,9 +6,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
 // same patterns as Registration
-const USERNAME_REGEX  = /^[a-zA-Z][a-zA-Z0-9_-]{2,19}$/; // 3–20, start letter
-const ACCOUNT_REGEX   = /^[0-9]{6,12}$/;                  // 6–12 digits
-const AUTH_DOMAIN     = "@bankportal.local";              // keep consistent with Registration
+const USERNAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_-]{2,19}$/; // 3–20, start letter
+const ACCOUNT_REGEX = /^[0-9]{6,12}$/; // 6–12 digits
+const AUTH_DOMAIN = "@bankportal.local"; // keep consistent with Registration
 
 export default function LoginForm({ onLoginSuccess }) {
   const [loginData, setLoginData] = useState({
@@ -30,7 +30,8 @@ export default function LoginForm({ onLoginSuccess }) {
   const validate = () => {
     const e = {};
     if (!USERNAME_REGEX.test(loginData.username.trim())) {
-      e.username = "Username 3–20 chars, letters first; letters/digits/_/- only.";
+      e.username =
+        "Username 3–20 chars, letters first; letters/digits/_/- only.";
     }
     if (!ACCOUNT_REGEX.test(loginData.accountNumber.trim())) {
       e.accountNumber = "Account number must be 6–12 digits.";
@@ -51,32 +52,55 @@ export default function LoginForm({ onLoginSuccess }) {
 
     // back-off delay (exponential-ish)
     const delayMs = Math.min(2000 * failCount.current, 8000);
-    if (delayMs) await new Promise(r => setTimeout(r, delayMs));
+    if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
 
     try {
       // normalise + sanitise
       const username = DOMPurify.sanitize(loginData.username.trim().toLowerCase());
-      const account  = DOMPurify.sanitize(loginData.accountNumber.trim());
+      const account = DOMPurify.sanitize(loginData.accountNumber.trim());
       const emailForAuth = `${username}${AUTH_DOMAIN}`;
 
-      // 1) Auth
-      const cred = await signInWithEmailAndPassword(auth, emailForAuth, loginData.password);
+      // 1) Authenticate user
+      const cred = await signInWithEmailAndPassword(
+        auth,
+        emailForAuth,
+        loginData.password
+      );
       const user = cred.user;
 
-      // 2) Check account number matches customer profile
+      // 2) Retrieve user profile from Firestore
       const snap = await getDoc(doc(db, "customers", user.uid));
-      if (snap.exists() && snap.data().accountNumber === account) {
+
+      if (snap.exists()) {
+        const data = snap.data();
+
+        // 🟢 NEW: Check account number matches
+        if (data.accountNumber !== account) {
+          await signOut(auth);
+          failCount.current += 1;
+          alert("Invalid account number. Please check and try again.");
+          setSubmitting(false);
+          return;
+        }
+
+        // 🟢 NEW: Determine role (default to "Customer")
+        const userRole = (data.role || "Customer").toLowerCase();
+
         failCount.current = 0; // reset on success
-        alert("Login successful. Welcome!");
-        onLoginSuccess && onLoginSuccess();
+
+        if (userRole === "employee") {
+          alert("Welcome Employee! Redirecting to dashboard...");
+          onLoginSuccess && onLoginSuccess("employee");
+        } else {
+          alert("Login successful! Redirecting to payment portal...");
+          onLoginSuccess && onLoginSuccess("customer");
+        }
       } else {
-        // mismatch: sign out to avoid an authenticated session with wrong account binding
         await signOut(auth);
         failCount.current += 1;
-        alert("Login failed. Please check your credentials."); // generic anti-enumeration
+        alert("Login failed: user not found in database.");
       }
     } catch (err) {
-      // generic message to avoid user enumeration
       console.error("Login error:", err);
       failCount.current += 1;
       alert("Login failed. Please check your credentials.");
@@ -87,7 +111,7 @@ export default function LoginForm({ onLoginSuccess }) {
 
   return (
     <div className="form-box">
-      <h2>Customer Login</h2>
+      <h2>Secure Login</h2>
       <form onSubmit={handleSubmit} autoComplete="off" noValidate>
         <input
           type="text"
