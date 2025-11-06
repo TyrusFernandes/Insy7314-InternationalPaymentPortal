@@ -1,0 +1,41 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      
+image: cimg/node:20.11
+  steps:
+checkout
+
+      
+run:
+        name: Install dependencies
+        command: npm ci
+
+      
+run:
+        name: Run tests
+        command: npm test -- --coverage --watchAll=false || true
+
+      
+run:
+        name: Install Sonar Scanner
+        command: |
+          curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+          unzip sonar-scanner.zip -d $HOME
+          export PATH=$HOME/sonar-scanner-5.0.1.3006-linux/bin:$PATH
+
+      
+run:
+        name: Run SonarCloud Analysis
+        command: |
+          export PATH=$HOME/sonar-scanner-5.0.1.3006-linux/bin:$PATH
+          sonar-scanner \-Dsonar.organization=$SONAR_ORG_KEY \-Dsonar.projectKey=$SONAR_PROJECT_KEY \-Dsonar.host.url=$SONAR_HOST_URL \-Dsonar.login=$SONAR_TOKEN
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      
+build
