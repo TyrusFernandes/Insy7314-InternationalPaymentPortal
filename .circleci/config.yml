@@ -4,6 +4,8 @@ jobs:
   build:
     docker:
       - image: cimg/node:20.11
+    context:
+      - sonarcloud        
     steps:
       - checkout
 
@@ -18,9 +20,16 @@ jobs:
       - run:
           name: Run SonarCloud Analysis
           command: |
+            # Download and unzip SonarScanner
             curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
             unzip sonar-scanner.zip -d $HOME
             export PATH=$HOME/sonar-scanner-5.0.1.3006-linux/bin:$PATH
+            
+            # Debug environment (optional)
+            echo "SONAR_ORG_KEY=$SONAR_ORG_KEY"
+            echo "SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY"
+            
+            # Run SonarCloud analysis
             sonar-scanner \
               -Dsonar.organization=$SONAR_ORG_KEY \
               -Dsonar.projectKey=$SONAR_PROJECT_KEY \
